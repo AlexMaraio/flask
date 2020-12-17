@@ -296,7 +296,7 @@ int main (int argc, char *argv[]) {
     Announce("Generating auxiliary gaussian alm's... ");
     jmin = (lmin*(lmin+1))/2;
     jmax = (lmax*(lmax+3))/2;
-#pragma omp parallel for schedule(static) private(l, m, i, k)
+#pragma omp parallel for schedule(static) private(l, m, i, k) // NOLINT(openmp-use-default-none)
     for(j=jmin; j<=jmax; j++) {
     
       // Find out which random generator to use:
@@ -405,7 +405,7 @@ int main (int argc, char *argv[]) {
   if (dist==lognormal) {
     Announce("LOGNORMAL realizations: exponentiating pixels... ");
     long2 = ((long)Nfields)*((long)npixels);
-#pragma omp parallel for private(i, j)
+#pragma omp parallel for private(i, j)  // NOLINT(openmp-use-default-none)
     for (long1=0; long1<long2; long1++) {
       i = (int)(long1%Nfields);
       j = (int)(long1/Nfields);
@@ -421,7 +421,7 @@ int main (int argc, char *argv[]) {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");
     for (i=0; i<Nfields; i++) {
       if (fieldlist.mean(i)!=0.0) {
-#pragma omp parallel for 
+#pragma omp parallel for  // NOLINT(openmp-use-default-none)
 	for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + fieldlist.mean(i);
       }
     }
@@ -461,7 +461,7 @@ int main (int argc, char *argv[]) {
 	Nintdens++;
 	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
 	fieldlist.Index2fFixed(i, &f, &zsource);
-#pragma omp parallel for private(z, m)
+#pragma omp parallel for private(z, m)  // NOLINT(openmp-use-default-none)
 	for (j=0; j<npixels; j++) {                             // LOOP over pixels (lines of sight).
 	  for (z=0; z<=zsource; z++) {                          // LOOP over redshift z (integrating).
 	    m = fieldlist.fFixedIndex(f, z);
@@ -568,7 +568,64 @@ int main (int argc, char *argv[]) {
   }
 
   // If requested, recover alms and/or Cls from maps:
-  RecoverAlmCls(mapf, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config);
+  RecoverAlmCls(mapf, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config, 11);
+
+  // * Now that we have recovered the Cl values without a mask, we want to apply successive masks to recover the
+  // * Cl values for each of these and see how they compare with the unmasked values
+
+  SelectionFunction selec_func;
+
+  selec_func.load(config, fieldlist);
+
+  for(int mask_num = 1; mask_num <= 10; ++mask_num)
+  {
+    // Load in the mask for this run
+    if (mask_num != 10)
+    {
+      selec_func.load_mask("/home/amaraio/Documents/PhD/Codes/LensingMapMaking/Data/Non-linear2/Masks/Mask" +
+                           std::to_string(mask_num) + ".fits");
+    }
+    else
+    {
+      // For the 10th mask, load the prototype Euclid mask
+      selec_func.load_mask("/home/amaraio/Documents/PhD/Codes/LensingMapMaking/resources/Euclid_masks/Euclid-gal-mask-1024.fits");
+    }
+
+    // The value that we will set our masked regions in our map to
+    constexpr double masked_val = 0;
+
+    // Initialise new maps
+    auto* masked_map = new Healpix_Map<MAP_PRECISION>[Nfields];
+
+    // Loop through all fields
+    for (int field_num = 0; field_num < Nfields; ++field_num)
+    {
+      // Ensure that we are working with convergence fields only
+      if (fieldlist.ftype(field_num) == flensing)
+      {
+        // Copy over the unmasked map into the masked map, which we will change here
+        masked_map[field_num] = mapf[field_num];
+
+        // Loop through each pixel, applying the mask at each point, if we need to
+        #pragma omp parallel for  // NOLINT(openmp-use-default-none)
+        for(int pix = 0; pix < npixels; ++pix)
+        {
+          if (selec_func.MaskBit(field_num, pix) == 1 || selec_func.MaskBit(field_num, pix) == 3 || selec_func.MaskBit(field_num, pix) == 2)
+          {
+            masked_map[field_num][pix] = masked_val;
+          }
+        }
+      }
+    }
+
+    std::cout << "Recovering Cl's for mask number " << mask_num << "\n";
+    // Recover the set of Cl and Alm parameters for the given mask
+    RecoverAlmCls(masked_map, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config, mask_num);
+
+    // Remove the pointers at end of cycle
+    delete[] masked_map;
+  }
+
   // Exit if this is the last output requested:
   if (ExitAt=="RECOVALM_OUT" || ExitAt=="RECOVCLS_OUT") {
     PrepareEnd(StartAll); return 0;
@@ -713,7 +770,7 @@ int main (int argc, char *argv[]) {
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
 	// LOOP over pixels of field 'i':
-#pragma omp parallel for schedule(static) private(k)
+#pragma omp parallel for schedule(static) private(k)  // NOLINT(openmp-use-default-none)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
 	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=-1.0; } // If density is negative, set it to zero.
@@ -735,7 +792,7 @@ int main (int argc, char *argv[]) {
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
 	// LOOP over pixels of field 'i':
-#pragma omp parallel for schedule(static) private(k)
+#pragma omp parallel for schedule(static) private(k)  // NOLINT(openmp-use-default-none)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
 	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
@@ -759,7 +816,7 @@ int main (int argc, char *argv[]) {
 	Announce(message);	
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
 	// LOOP over pixels of field 'i':
-#pragma omp parallel for schedule(static) private(k)
+#pragma omp parallel for schedule(static) private(k)  // NOLINT(openmp-use-default-none)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
 	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
@@ -787,7 +844,7 @@ int main (int argc, char *argv[]) {
 	  fieldlist.Index2Name(i, &f, &z);
 	  sprintf(message, "Masking f%dz%d... ", f, z); filename.assign(message); 
 	  Announce(filename);
-#pragma omp parallel for
+#pragma omp parallel for  // NOLINT(openmp-use-default-none)
 	  for(j=0; j<npixels; j++)
 	    // No noise is added, we only apply the mask:
 	    if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
@@ -842,7 +899,7 @@ int main (int argc, char *argv[]) {
 	    e1Mapf[i].SetNside(nside,RING);  e2Mapf[i].SetNside(nside,RING);
 	    sprintf(message, "Generating ellipticity for f%dz%d...", f, z); filename.assign(message); 
 	    Announce(filename);
-#pragma omp parallel for schedule(static) private(k)
+#pragma omp parallel for schedule(static) private(k)  // NOLINT(openmp-use-default-none)
 	    for(m=0; m<npixels; m++) {
 	      k = omp_get_thread_num()+1;
 	      // Mask ellipticity map at galaxy-free pixels:
@@ -885,7 +942,7 @@ int main (int argc, char *argv[]) {
 	  e1Mapf[i].SetNside(nside,RING);  e2Mapf[i].SetNside(nside,RING);
 	  sprintf(message, "Generating ellipticity for f%dz%d...", f, z); filename.assign(message); 
 	  Announce(filename);
-#pragma omp parallel for schedule(static) private(k)
+#pragma omp parallel for schedule(static) private(k)  // NOLINT(openmp-use-default-none)
 	  for(m=0; m<npixels; m++) {
 	    k = omp_get_thread_num()+1;
 	    // Mask ellipticity map at masked regions:
@@ -956,7 +1013,7 @@ int main (int argc, char *argv[]) {
   longNz  = (long)Nz;
   Ncells  = ((long)npixels)*longNz; // Number of 3D cells.
   // Loop over 3D cells:
-#pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
+#pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)  // NOLINT(openmp-use-default-none)
   for (kl=0; kl<Ncells; kl++) {
     l     = omp_get_thread_num();
     j     = kl/longNz;     // angular pixel.
@@ -1021,7 +1078,7 @@ int main (int argc, char *argv[]) {
   Announce("Generating catalog... ");
   if (r_pos!=-1) ComDist(cosmo,1.0);   // Initialize Comoving distance formula if requested.
   PartialNgal=0;                       // Counter of galaxies inside thread.
-#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, rdist, cellNgal, f, z) firstprivate(PartialNgal)
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, rdist, cellNgal, f, z) firstprivate(PartialNgal)  // NOLINT(openmp-use-default-none)
   // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
   for (kl=0; kl<Ncells; kl++) {
     l        = omp_get_thread_num();   // Processor number.

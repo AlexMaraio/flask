@@ -70,12 +70,19 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
 
 // Prints all Cl's to a TEXT file:
 void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist, 
-		   const ParameterList & config, std::string keyword, bool inform) {
+		   const ParameterList & config, std::string keyword, bool inform, const int mask_num) {
   std::string filename;
   std::ofstream outfile; 
   int k, l, m, i, j, fi, zi, fj, zj, lminout, lmaxout, NCls, Nfields;
-  
-  filename  = config.reads(keyword);
+
+  if (mask_num == 0)
+  {
+    filename  = config.reads(keyword);
+  }
+  else
+  {
+    filename = "MaskedOutput/MaskedCls" + std::to_string(mask_num) + ".dat";
+  }
   // If requested, write Cl's to the file:
   if (filename!="0") {
     outfile.open(filename.c_str());
@@ -94,7 +101,7 @@ void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist,
     NCls    = (Nfields*(Nfields+1))/2;
 
     // Write header to file:
-    outfile << "# l ";
+    outfile << "ell ";
     for (k=0; k<NCls; k++) if (yesCl[k]==1) {
       l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
       m = NCls-1-k-(l*(l+1))/2;

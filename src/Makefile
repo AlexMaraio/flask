@@ -21,10 +21,13 @@ PYF  = ../py
 #LDHEAL   = -L$(HEALDIR)/lib
 
 # Healpix location (for versions <=3.50):
-HEALDIR  =  /home/jayesh/Documents/Euclid/Software/Healpix_3.50
+HEALDIR  = /home/amaraio/Documents/PhD/Codes/Healpix_3.70
 HEALDATA = $(HEALDIR)/data
-CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
-LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
+CXXHEAL  = -I$(HEALDIR)/include/healpix_cxx
+LDHEAL   = -L$(HEALDIR)/lib
+
+CDDFITS = -I/usr/lib/x86_64-linux-gnu
+LDFITS = -L/usr/lib/x86_64-linux-gnu
 
 # Location of some 'standard' libraries that might be required if not included by default:
 LIB1 = -I/usr/include
@@ -120,7 +123,8 @@ FLASKCOMMIT = missing
 endif
 
 # Other compiler flags:
-CXXOMP = -fopenmp
+CXXOMP = -fopenmp -Ofast -march=native -flto
+# CXXOMP = -fopenmp -g -O0
 
 
 # Libraries to link:

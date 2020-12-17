@@ -291,7 +291,7 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldli
 
 // This routine takes an array of alm's, computes the Cls for each one of them and output the results:
 void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldlist, 
-		std::string clsKey, const ParameterList & config) {
+		std::string clsKey, const ParameterList & config, const int mask_num) {
   int i, j, k, l, m, lmin, lmax, lminout, lmaxout, mmax, NCls, Nfields;
   double **recovCl;
   bool *yesCl;
@@ -328,17 +328,23 @@ void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldli
 	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
 	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
 #else
-	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*conj(bflm[j](l,m))).real();
-	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*conj(bflm[j](l,m))).real();
+    for(m = 0; m <= l; m++)
+    {
+      auto tmp_cl = (bflm[i](l, m) * conj(bflm[j](l, m))).real();
+
+      if (m != 0) tmp_cl *= 2;
+
+      recovCl[k][l] += tmp_cl;
+    }
 #endif
-	  recovCl[k][l] = recovCl[k][l]/((double)(l+1));
+	  recovCl[k][l] = recovCl[k][l]/((double)(2 * l + 1));
 	}
       }
       else yesCl[k] = 0;
     } // End of Cl computing.
     Announce();
 
-    GeneralOutput(recovCl, yesCl, fieldlist, config, clsKey);
+    GeneralOutput(recovCl, yesCl, fieldlist, config, clsKey, true, mask_num);
     free_matrix(recovCl, 0, NCls-1, lminout, lmaxout);
     free_vector(yesCl, 0, NCls-1);
   }
@@ -347,7 +353,7 @@ void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldli
 
 // If alm or Cls output is requested, compute them and output them:
 void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, 
-		   std::string almKey, std::string clsKey, const ParameterList & config) {
+		   std::string almKey, std::string clsKey, const ParameterList & config, const int mask_num) {
   int i, l, m, nside, lmin, lmax, lminout, lmaxout, Nfields;
   Alm<xcomplex <ALM_PRECISION> > *bflm;
 
@@ -389,7 +395,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     GeneralOutput(bflm, config, almKey, fieldlist);
 
     // Compute Cl's if requested:
-    RecoverCls(bflm, fieldlist, clsKey, config);
+    RecoverCls(bflm, fieldlist, clsKey, config, mask_num);
 
     // Free memory:
     free_vector(bflm, 0, Nfields-1);

@@ -208,6 +208,17 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
 
 }
 
+void SelectionFunction::load_mask(const std::string& filepath)
+{
+  /*
+   * Function that takes in a file path for a HealPix map that we want to use as a mask, and then sets the class's
+   * StarMask attribute to this mask. Allows us to easily change the mask without much recomputation needed.
+   * */
+
+  read_Healpix_map_from_fits(filepath, this->StarMask);
+
+}
+
 
 // Count types of galaxies and index their radial selection functions:
 // This function assumes tracerIndex is already allocated.

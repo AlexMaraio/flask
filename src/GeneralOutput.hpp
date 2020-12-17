@@ -22,7 +22,7 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
 
 // Prints all Cl's to a TEXT file:
 void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist, 
-		   const ParameterList & config, std::string keyword, bool inform = 1);
+		   const ParameterList & config, std::string keyword, bool inform = 1, const int mask_num = 0);
 
 
 /*** Alm's output ***/

@@ -1,6 +1,7 @@
 #ifndef SELECTIONFUNC_H    // include guard.
 #define SELECTIONFUNC_H 1
 
+#include <string>
 #include "definitions.hpp"
 #include "ParameterList.hpp"
 #include <healpix_map.h>
@@ -21,6 +22,7 @@ private:
 public:
   SelectionFunction();
   void load(const ParameterList & config, const FZdatabase & fieldlist);
+  void load_mask(const std::string& filepath);
   int Nside() const;
   int Scheme() const;
   double operator()(int fz, int pix);
