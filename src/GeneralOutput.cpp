@@ -81,7 +81,7 @@ void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist,
   }
   else
   {
-    filename = "MaskedOutput/MaskedCls" + std::to_string(mask_num) + ".dat";
+    filename = config.reads("MASKED_OUTPUT_DIR") + "/MaskedCls" + std::to_string(mask_num) + ".dat";
   }
   // If requested, write Cl's to the file:
   if (filename!="0") {
